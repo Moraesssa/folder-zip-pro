@@ -19,7 +19,7 @@ const CloudIntegration: React.FC<CloudIntegrationProps> = ({
   compressedBlob, 
   onUploadComplete 
 }) => {
-  const [selectedProvider, setSelectedProvider] = useState<CloudProvider['id'] | ''>('');
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [connectEmail, setConnectEmail] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [uploadFolder, setUploadFolder] = useState('ZipFast');
@@ -43,7 +43,7 @@ const CloudIntegration: React.FC<CloudIntegrationProps> = ({
     if (!selectedProvider || !connectEmail) return;
     
     setIsConnecting(true);
-    const success = await connectProvider(selectedProvider, connectEmail);
+    const success = await connectProvider(selectedProvider as CloudProvider['id'], connectEmail);
     
     if (success) {
       toast({

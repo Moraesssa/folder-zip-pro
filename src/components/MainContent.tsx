@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
-import CloudIntegration from '@/components/CloudIntegration';
+import CloudIntegration from '@/components/Cloudintegration';
 import CompressionHistory from '@/components/CompressionHistory';
 import DynamicAd from '@/components/DynamicAd';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';

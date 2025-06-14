@@ -45,7 +45,7 @@ export class CloudService {
   ];
 
   private uploadProgress: CloudUploadProgress[] = [];
-  private onProgressCallback?: (progress: CloudUploadProgress[]) => void;
+  public onProgressCallback?: (progress: CloudUploadProgress[]) => void;
 
   constructor(onProgressCallback?: (progress: CloudUploadProgress[]) => void) {
     this.onProgressCallback = onProgressCallback;
