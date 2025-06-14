@@ -20,6 +20,11 @@ export interface UserSession {
   referrer: string;
 }
 
+// Declare gtag globally to avoid TypeScript errors
+declare global {
+  function gtag(...args: any[]): void;
+}
+
 export class AnalyticsService {
   private events: AnalyticsEvent[] = [];
   private session: UserSession;
@@ -104,7 +109,7 @@ export class AnalyticsService {
 
   private sendToGA(event: AnalyticsEvent): void {
     // Simular envio para Google Analytics
-    if (typeof gtag !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof gtag !== 'undefined') {
       gtag('event', event.action, {
         event_category: event.category,
         event_label: event.label,
