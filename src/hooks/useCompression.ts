@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { CompressionService, FileData } from '@/services/compressionService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface CompressionState {
   isCompressing: boolean;
@@ -21,6 +22,7 @@ export const useCompression = () => {
   });
 
   const { user, consumeCredits } = useAuth();
+  const { notifyCompressionComplete, notifyLowCredits } = useNotifications();
 
   const compressFiles = useCallback(async (files: FileData[]) => {
     // Verificar se usuário tem créditos suficientes
@@ -30,6 +32,11 @@ export const useCompression = () => {
         error: 'Créditos insuficientes. Faça upgrade para PRO!' 
       }));
       throw new Error('Créditos insuficientes');
+    }
+
+    // Notificar se créditos estão baixos
+    if (user && user.credits <= 3) {
+      notifyLowCredits(user.credits);
     }
 
     setState(prev => ({ ...prev, isCompressing: true, progress: 0, error: null }));
@@ -54,6 +61,9 @@ export const useCompression = () => {
         progress: 100
       }));
 
+      // Enviar notificação de conclusão
+      notifyCompressionComplete(files.length, compressionRatio);
+
       return { compressedBlob, compressionRatio };
     } catch (error) {
       setState(prev => ({
@@ -63,7 +73,7 @@ export const useCompression = () => {
       }));
       throw error;
     }
-  }, [user, consumeCredits]);
+  }, [user, consumeCredits, notifyCompressionComplete, notifyLowCredits]);
 
   const downloadCompressed = useCallback((filename?: string) => {
     if (state.compressedBlob) {

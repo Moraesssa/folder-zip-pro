@@ -6,7 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
+import CloudIntegration from '@/components/CloudIntegration';
+import CompressionHistory from '@/components/CompressionHistory';
 import DynamicAd from '@/components/DynamicAd';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface FileData {
   name: string;
@@ -27,6 +30,7 @@ const MainContent: React.FC<MainContentProps> = ({
   onActionBasedConversion 
 }) => {
   const [files, setFiles] = useState<FileData[]>([]);
+  const [activeTab, setActiveTab] = useState('compress');
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const { 
@@ -48,7 +52,7 @@ const MainContent: React.FC<MainContentProps> = ({
 
   const handleFilesSelected = (selectedFiles: FileData[]) => {
     const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
-    const maxSize = user?.maxFileSize || 500 * 1024 * 1024; // 500MB para não logados
+    const maxSize = user?.maxFileSize || 500 * 1024 * 1024;
     
     trackFileUpload(selectedFiles.length, totalSize);
     
@@ -89,7 +93,6 @@ const MainContent: React.FC<MainContentProps> = ({
       return;
     }
     
-    // Trigger action-based conversion popup after 3 compressions
     onActionBasedConversion();
     
     try {
@@ -97,6 +100,24 @@ const MainContent: React.FC<MainContentProps> = ({
       const result = await compressFiles(files);
       
       trackCompression(files.length, totalSize, result.compressedBlob.size, result.compressionRatio);
+      
+      // Salvar no histórico
+      if (user) {
+        const compressionRecord = {
+          id: `compression_${Date.now()}`,
+          filename: `zipfast_${Date.now()}.zip`,
+          originalSize: totalSize,
+          compressedSize: result.compressedBlob.size,
+          compressionRatio: result.compressionRatio,
+          createdAt: Date.now(),
+          fileCount: files.length
+        };
+        
+        const existingHistory = JSON.parse(localStorage.getItem(`zipfast_history_${user.id}`) || '[]');
+        const updatedHistory = [compressionRecord, ...existingHistory].slice(0, 50); // Manter apenas 50 registros
+        localStorage.setItem(`zipfast_history_${user.id}`, JSON.stringify(updatedHistory));
+      }
+      
       const compressionCount = parseInt(localStorage.getItem('compressionCount') || '0');
       localStorage.setItem('compressionCount', (compressionCount + 1).toString());
       
@@ -136,6 +157,30 @@ const MainContent: React.FC<MainContentProps> = ({
     trackUserAction('compression_reset');
   };
 
+  const handleCloudUploadComplete = (shareUrl: string) => {
+    // Atualizar histórico com upload na nuvem
+    if (user && compressedBlob) {
+      const existingHistory = JSON.parse(localStorage.getItem(`zipfast_history_${user.id}`) || '[]');
+      const updatedHistory = existingHistory.map((record: any) => {
+        if (record.id === `compression_${Date.now()}`) { // Último registro
+          return {
+            ...record,
+            cloudUploads: [
+              ...(record.cloudUploads || []),
+              {
+                provider: 'gdrive', // Seria dinâmico
+                shareUrl,
+                uploadedAt: Date.now()
+              }
+            ]
+          };
+        }
+        return record;
+      });
+      localStorage.setItem(`zipfast_history_${user.id}`, JSON.stringify(updatedHistory));
+    }
+  };
+
   return (
     <>
       {/* Sidebar Ad for Free Users */}
@@ -145,26 +190,48 @@ const MainContent: React.FC<MainContentProps> = ({
         </div>
       )}
 
-      {/* Upload Zone */}
-      <div id="upload-zone" className="mb-12">
-        <UploadZone onFilesSelected={handleFilesSelected} />
-      </div>
+      {/* Main Content Tabs */}
+      <div className="mb-12">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="compress">Comprimir Arquivos</TabsTrigger>
+            <TabsTrigger value="cloud">Integração Nuvem</TabsTrigger>
+            <TabsTrigger value="history">Histórico</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="compress" className="space-y-8">
+            {/* Upload Zone */}
+            <div id="upload-zone">
+              <UploadZone onFilesSelected={handleFilesSelected} />
+            </div>
 
-      {/* Compression Progress */}
-      {(files.length > 0 || isCompressing) && (
-        <div className="mb-12">
-          <CompressionProgress 
-            files={files}
-            isCompressing={isCompressing}
-            progress={progress}
-            compressionRatio={compressionRatio}
-            compressedBlob={compressedBlob}
-            onCompress={handleCompress}
-            onDownload={handleDownload}
-            onReset={handleReset}
-          />
-        </div>
-      )}
+            {/* Compression Progress */}
+            {(files.length > 0 || isCompressing) && (
+              <CompressionProgress 
+                files={files}
+                isCompressing={isCompressing}
+                progress={progress}
+                compressionRatio={compressionRatio}
+                compressedBlob={compressedBlob}
+                onCompress={handleCompress}
+                onDownload={handleDownload}
+                onReset={handleReset}
+              />
+            )}
+          </TabsContent>
+          
+          <TabsContent value="cloud">
+            <CloudIntegration 
+              compressedBlob={compressedBlob}
+              onUploadComplete={handleCloudUploadComplete}
+            />
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <CompressionHistory />
+          </TabsContent>
+        </Tabs>
+      </div>
     </>
   );
 };
