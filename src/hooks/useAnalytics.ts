@@ -65,6 +65,14 @@ export const useAnalytics = () => {
     });
   };
 
+  const trackAdClick = (adId: string, placement: string) => {
+    analyticsService.track('ad_click', 'advertisement', 'click', adId, undefined, {
+      placement,
+      userId: user?.id,
+      userPlan: user?.plan
+    });
+  };
+
   return {
     trackEvent,
     trackPageView,
@@ -73,6 +81,7 @@ export const useAnalytics = () => {
     trackDownload,
     trackConversion,
     trackUserAction,
+    trackAdClick,
     getSessionStats: () => analyticsService.getSessionStats(),
     getUserJourney: () => analyticsService.getUserJourney()
   };

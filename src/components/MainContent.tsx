@@ -1,15 +1,18 @@
 
 import React, { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useCompression } from '@/hooks/useCompression';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useFileUploadHandler } from '@/components/FileUploadHandler';
+import { useCompressionHandler } from '@/components/CompressionHandler';
+import { useDownloadHandler } from '@/components/DownloadHandler';
+import { useCloudUploadHandler } from '@/components/CloudUploadHandler';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
-import CloudIntegration from '@/components/Cloudintegration';
+import Cloudintegration from '@/components/Cloudintegration';
 import CompressionHistory from '@/components/CompressionHistory';
 import DynamicAd from '@/components/DynamicAd';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FileData {
   name: string;
@@ -31,14 +34,8 @@ const MainContent: React.FC<MainContentProps> = ({
 }) => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [activeTab, setActiveTab] = useState('compress');
-  const { toast } = useToast();
-  const { user, isAuthenticated } = useAuth();
-  const { 
-    trackFileUpload, 
-    trackCompression, 
-    trackDownload, 
-    trackUserAction 
-  } = useAnalytics();
+  const { isAuthenticated } = useAuth();
+  const { trackUserAction } = useAnalytics();
   
   const { 
     isCompressing, 
@@ -50,135 +47,34 @@ const MainContent: React.FC<MainContentProps> = ({
     reset 
   } = useCompression();
 
-  const handleFilesSelected = (selectedFiles: FileData[]) => {
-    const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
-    const maxSize = user?.maxFileSize || 500 * 1024 * 1024;
-    
-    trackFileUpload(selectedFiles.length, totalSize);
-    
-    if (totalSize > maxSize) {
-      if (!isAuthenticated) {
-        onLoginRequired();
-        toast({
-          title: "Faça login para arquivos maiores",
-          description: "Crie uma conta gratuita para processar arquivos até 500MB!",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      onProUpgradeRequired();
-      toast({
-        title: "Limite excedido",
-        description: `Arquivos muito grandes (${(totalSize / 1024 / 1024).toFixed(1)}MB). Upgrade para PRO para processar até 5GB!`,
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setFiles(selectedFiles);
-    console.log("Files selected:", selectedFiles);
-  };
+  // Custom handlers
+  const { handleFilesSelected } = useFileUploadHandler({
+    onFilesSelected: setFiles,
+    onLoginRequired,
+    onProUpgradeRequired
+  });
 
-  const handleCompress = async () => {
-    if (files.length === 0) return;
-    
-    if (!isAuthenticated) {
-      onLoginRequired();
-      toast({
-        title: "Login necessário",
-        description: "Faça login para comprimir arquivos gratuitamente!",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    onActionBasedConversion();
-    
-    try {
-      const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-      const result = await compressFiles(files);
-      
-      trackCompression(files.length, totalSize, result.compressedBlob.size, result.compressionRatio);
-      
-      // Salvar no histórico
-      if (user) {
-        const compressionRecord = {
-          id: `compression_${Date.now()}`,
-          filename: `zipfast_${Date.now()}.zip`,
-          originalSize: totalSize,
-          compressedSize: result.compressedBlob.size,
-          compressionRatio: result.compressionRatio,
-          createdAt: Date.now(),
-          fileCount: files.length
-        };
-        
-        const existingHistory = JSON.parse(localStorage.getItem(`zipfast_history_${user.id}`) || '[]');
-        const updatedHistory = [compressionRecord, ...existingHistory].slice(0, 50); // Manter apenas 50 registros
-        localStorage.setItem(`zipfast_history_${user.id}`, JSON.stringify(updatedHistory));
-      }
-      
-      const compressionCount = parseInt(localStorage.getItem('compressionCount') || '0');
-      localStorage.setItem('compressionCount', (compressionCount + 1).toString());
-      
-      toast({
-        title: "✅ Compressão concluída!",
-        description: `${files.length} arquivo(s) comprimidos com sucesso. Economia: ${result.compressionRatio}%`,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Créditos insuficientes')) {
-        onProUpgradeRequired();
-      } else {
-        toast({
-          title: "❌ Erro na compressão",
-          description: "Houve um problema ao comprimir os arquivos. Tente novamente.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
+  const { handleCompress } = useCompressionHandler({
+    files,
+    compressFiles,
+    onLoginRequired,
+    onProUpgradeRequired,
+    onActionBasedConversion
+  });
 
-  const handleDownload = () => {
-    if (compressedBlob) {
-      const filename = `zipfast_${Date.now()}.zip`;
-      downloadCompressed(filename);
-      trackDownload(filename, compressedBlob.size);
-      
-      toast({
-        title: "📥 Download iniciado!",
-        description: "Seu arquivo ZIP está sendo baixado.",
-      });
-    }
-  };
+  const { handleDownload } = useDownloadHandler({
+    compressedBlob,
+    downloadCompressed
+  });
+
+  const { handleCloudUploadComplete } = useCloudUploadHandler({
+    compressedBlob
+  });
 
   const handleReset = () => {
     setFiles([]);
     reset();
     trackUserAction('compression_reset');
-  };
-
-  const handleCloudUploadComplete = (shareUrl: string) => {
-    // Atualizar histórico com upload na nuvem
-    if (user && compressedBlob) {
-      const existingHistory = JSON.parse(localStorage.getItem(`zipfast_history_${user.id}`) || '[]');
-      const updatedHistory = existingHistory.map((record: any) => {
-        if (record.id === `compression_${Date.now()}`) { // Último registro
-          return {
-            ...record,
-            cloudUploads: [
-              ...(record.cloudUploads || []),
-              {
-                provider: 'gdrive', // Seria dinâmico
-                shareUrl,
-                uploadedAt: Date.now()
-              }
-            ]
-          };
-        }
-        return record;
-      });
-      localStorage.setItem(`zipfast_history_${user.id}`, JSON.stringify(updatedHistory));
-    }
   };
 
   return (
@@ -221,7 +117,7 @@ const MainContent: React.FC<MainContentProps> = ({
           </TabsContent>
           
           <TabsContent value="cloud">
-            <CloudIntegration 
+            <Cloudintegration 
               compressedBlob={compressedBlob}
               onUploadComplete={handleCloudUploadComplete}
             />
