@@ -6,11 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create a fallback client if environment variables are missing
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 interface User {
   id: string;
@@ -49,6 +48,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
+    // If Supabase is not configured, just set loading to false
+    if (!supabase) {
+      console.warn('Supabase not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables.');
+      setIsLoading(false);
+      return;
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -72,6 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadUserProfile = async (userId: string) => {
+    if (!supabase) return;
+    
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -102,6 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
+    if (!supabase) {
+      toast({
+        title: "Configuração necessária",
+        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -125,6 +142,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async () => {
+    if (!supabase) {
+      toast({
+        title: "Configuração necessária",
+        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -148,12 +174,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!supabase) return;
+    
     await supabase.auth.signOut();
     setUser(null);
   };
 
   const consumeCredits = async (amount: number): Promise<boolean> => {
-    if (!user || user.credits < amount) {
+    if (!supabase || !user || user.credits < amount) {
       return false;
     }
 
@@ -174,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkSubscription = async () => {
-    if (!user) return;
+    if (!supabase || !user) return;
 
     try {
       const { data: session } = await supabase.auth.getSession();
