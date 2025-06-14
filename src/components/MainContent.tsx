@@ -88,45 +88,58 @@ const MainContent: React.FC<MainContentProps> = ({
 
       {/* Main Content Tabs */}
       <div className="mb-12">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="compress">Comprimir Arquivos</TabsTrigger>
-            <TabsTrigger value="cloud">Integração Nuvem</TabsTrigger>
-            <TabsTrigger value="history">Histórico</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="compress" className="space-y-8">
-            {/* Upload Zone */}
-            <div id="upload-zone">
-              <UploadZone onFilesSelected={handleFilesSelected} />
+        <div className="max-w-4xl mx-auto">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="mb-6">
+              <TabsList className="grid w-full grid-cols-3 max-w-2xl mx-auto">
+                <TabsTrigger value="compress" className="text-center">
+                  <span className="hidden sm:inline">Comprimir Arquivos</span>
+                  <span className="sm:hidden">Comprimir</span>
+                </TabsTrigger>
+                <TabsTrigger value="cloud" className="text-center">
+                  <span className="hidden sm:inline">Integração Nuvem</span>
+                  <span className="sm:hidden">Nuvem</span>
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-center">
+                  <span className="hidden sm:inline">Histórico</span>
+                  <span className="sm:hidden">Histórico</span>
+                </TabsTrigger>
+              </TabsList>
             </div>
+            
+            <TabsContent value="compress" className="space-y-8">
+              {/* Upload Zone */}
+              <div id="upload-zone">
+                <UploadZone onFilesSelected={handleFilesSelected} />
+              </div>
 
-            {/* Compression Progress */}
-            {(files.length > 0 || isCompressing) && (
-              <CompressionProgress 
-                files={files}
-                isCompressing={isCompressing}
-                progress={progress}
-                compressionRatio={compressionRatio}
+              {/* Compression Progress */}
+              {(files.length > 0 || isCompressing) && (
+                <CompressionProgress 
+                  files={files}
+                  isCompressing={isCompressing}
+                  progress={progress}
+                  compressionRatio={compressionRatio}
+                  compressedBlob={compressedBlob}
+                  onCompress={handleCompress}
+                  onDownload={handleDownload}
+                  onReset={handleReset}
+                />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="cloud">
+              <Cloudintegration 
                 compressedBlob={compressedBlob}
-                onCompress={handleCompress}
-                onDownload={handleDownload}
-                onReset={handleReset}
+                onUploadComplete={handleCloudUploadComplete}
               />
-            )}
-          </TabsContent>
-          
-          <TabsContent value="cloud">
-            <Cloudintegration 
-              compressedBlob={compressedBlob}
-              onUploadComplete={handleCloudUploadComplete}
-            />
-          </TabsContent>
-          
-          <TabsContent value="history">
-            <CompressionHistory />
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+            
+            <TabsContent value="history">
+              <CompressionHistory />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </>
   );
