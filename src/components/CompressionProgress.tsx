@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Zap, Download, RotateCcw, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -9,13 +8,17 @@ interface FileData {
   name: string;
   size: number;
   type: string;
+  file?: File;
 }
 
 interface CompressionProgressProps {
   files: FileData[];
   isCompressing: boolean;
   progress: number;
+  compressionRatio: number;
+  compressedBlob: Blob | null;
   onCompress: () => void;
+  onDownload: () => void;
   onReset: () => void;
 }
 
@@ -23,7 +26,10 @@ const CompressionProgress: React.FC<CompressionProgressProps> = ({
   files,
   isCompressing,
   progress,
+  compressionRatio,
+  compressedBlob,
   onCompress,
+  onDownload,
   onReset
 }) => {
   const totalSize = files.reduce((acc, file) => acc + file.size, 0);
@@ -35,7 +41,7 @@ const CompressionProgress: React.FC<CompressionProgressProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (progress === 100 && !isCompressing) {
+  if (progress === 100 && !isCompressing && compressedBlob) {
     return (
       <Card className="zipfast-card">
         <div className="p-8 text-center">
@@ -44,12 +50,15 @@ const CompressionProgress: React.FC<CompressionProgressProps> = ({
           </div>
           
           <h3 className="text-2xl font-bold mb-4 text-green-600">Compressão Concluída!</h3>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-2">
             {files.length} arquivo(s) comprimidos • Tamanho original: {formatSize(totalSize)}
+          </p>
+          <p className="text-gray-600 mb-6">
+            Tamanho final: {formatSize(compressedBlob.size)} • <span className="text-green-600 font-semibold">Economia: {compressionRatio}%</span>
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
-            <Button className="zipfast-button">
+            <Button onClick={onDownload} className="zipfast-button">
               <Download className="w-5 h-5 mr-2" />
               Baixar ZIP
             </Button>

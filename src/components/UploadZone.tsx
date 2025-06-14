@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from 'react';
 import { Upload, FolderOpen, FileText, Image as ImageIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -7,6 +6,7 @@ interface FileData {
   name: string;
   size: number;
   type: string;
+  file?: File;
 }
 
 interface UploadZoneProps {
@@ -15,6 +15,16 @@ interface UploadZoneProps {
 
 const UploadZone: React.FC<UploadZoneProps> = ({ onFilesSelected }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+
+  const processFiles = useCallback((fileList: FileList) => {
+    const files: FileData[] = Array.from(fileList).map(file => ({
+      name: file.name,
+      size: file.size,
+      type: file.type || 'unknown',
+      file: file
+    }));
+    onFilesSelected(files);
+  }, [onFilesSelected]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,39 +40,18 @@ const UploadZone: React.FC<UploadZoneProps> = ({ onFilesSelected }) => {
     e.preventDefault();
     setIsDragOver(false);
 
-    const items = Array.from(e.dataTransfer.items);
-    const files: FileData[] = [];
-
-    items.forEach((item) => {
-      if (item.kind === 'file') {
-        const file = item.getAsFile();
-        if (file) {
-          files.push({
-            name: file.name,
-            size: file.size,
-            type: file.type || 'unknown'
-          });
-        }
-      }
-    });
-
-    if (files.length > 0) {
-      onFilesSelected(files);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFiles(files);
     }
-  }, [onFilesSelected]);
+  }, [processFiles]);
 
   const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
-    if (!fileList) return;
-
-    const files: FileData[] = Array.from(fileList).map(file => ({
-      name: file.name,
-      size: file.size,
-      type: file.type || 'unknown'
-    }));
-
-    onFilesSelected(files);
-  }, [onFilesSelected]);
+    if (fileList && fileList.length > 0) {
+      processFiles(fileList);
+    }
+  }, [processFiles]);
 
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();

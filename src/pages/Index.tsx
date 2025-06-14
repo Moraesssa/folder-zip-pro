@@ -1,10 +1,8 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Upload, Zap, Crown, Download, Folder, FileText, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useCompression } from '@/hooks/useCompression';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
@@ -17,16 +15,25 @@ interface FileData {
   name: string;
   size: number;
   type: string;
+  file?: File;
 }
 
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionProgress, setCompressionProgress] = useState(0);
   const [isProModalOpen, setIsProModalOpen] = useState(false);
   const { toast } = useToast();
+  
+  const { 
+    isCompressing, 
+    progress, 
+    compressedBlob, 
+    compressionRatio,
+    compressFiles, 
+    downloadCompressed, 
+    reset 
+  } = useCompression();
 
-  const handleFilesSelected = useCallback((selectedFiles: FileData[]) => {
+  const handleFilesSelected = (selectedFiles: FileData[]) => {
     const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
     const maxSize = 500 * 1024 * 1024; // 500MB limit for free users
     
@@ -42,39 +49,38 @@ const Index = () => {
     
     setFiles(selectedFiles);
     console.log("Files selected:", selectedFiles);
-  }, [toast]);
+  };
 
-  const handleCompress = useCallback(async () => {
+  const handleCompress = async () => {
     if (files.length === 0) return;
     
-    setIsCompressing(true);
-    setCompressionProgress(0);
-
-    // Simular compressão com progresso realista
-    const compressionSteps = [
-      { progress: 15, message: "Analisando arquivos..." },
-      { progress: 30, message: "Comprimindo dados..." },
-      { progress: 60, message: "Otimizando compressão..." },
-      { progress: 85, message: "Finalizando arquivo ZIP..." },
-      { progress: 100, message: "Compressão concluída!" }
-    ];
-
-    for (const step of compressionSteps) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setCompressionProgress(step.progress);
-      console.log(step.message);
+    try {
+      const result = await compressFiles(files);
+      toast({
+        title: "✅ Compressão concluída!",
+        description: `${files.length} arquivo(s) comprimidos com sucesso. Economia: ${result.compressionRatio}%`,
+      });
+    } catch (error) {
+      toast({
+        title: "❌ Erro na compressão",
+        description: "Houve um problema ao comprimir os arquivos. Tente novamente.",
+        variant: "destructive"
+      });
     }
+  };
 
+  const handleDownload = () => {
+    downloadCompressed(`zipfast_${Date.now()}.zip`);
     toast({
-      title: "✅ Compressão concluída!",
-      description: `${files.length} arquivo(s) comprimidos com sucesso. Economia estimada: ${Math.floor(Math.random() * 40 + 30)}%`,
+      title: "📥 Download iniciado!",
+      description: "Seu arquivo ZIP está sendo baixado.",
     });
+  };
 
-    // Mostrar opções de download após 1 segundo
-    setTimeout(() => {
-      setIsCompressing(false);
-    }, 1000);
-  }, [files, toast]);
+  const handleReset = () => {
+    setFiles([]);
+    reset();
+  };
 
   const features = [
     {
@@ -149,13 +155,12 @@ const Index = () => {
             <CompressionProgress 
               files={files}
               isCompressing={isCompressing}
-              progress={compressionProgress}
+              progress={progress}
+              compressionRatio={compressionRatio}
+              compressedBlob={compressedBlob}
               onCompress={handleCompress}
-              onReset={() => {
-                setFiles([]);
-                setCompressionProgress(0);
-                setIsCompressing(false);
-              }}
+              onDownload={handleDownload}
+              onReset={handleReset}
             />
           </div>
         )}
