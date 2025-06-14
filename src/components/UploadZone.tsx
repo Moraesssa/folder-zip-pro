@@ -124,8 +124,7 @@ const UploadZone: React.FC<UploadZoneProps> = ({ onFilesSelected }) => {
             Selecionar Pasta
             <input
               type="file"
-              webkitdirectory="true"
-              directory="true"
+              {...({ webkitdirectory: 'true' } as any)}
               className="hidden"
               onChange={handleFileInput}
             />
