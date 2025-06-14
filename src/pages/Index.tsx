@@ -1,19 +1,23 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, Zap, Crown, Download, Folder, FileText, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useCompression } from '@/hooks/useCompression';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAnalytics } from '@/hooks/useAnalytics';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
 import FeatureCard from '@/components/FeatureCard';
 import AdBanner from '@/components/AdBanner';
+import AffiliateSection from '@/components/AffiliateSection';
+import ConversionPopup from '@/components/ConversionPopup';
 import ProUpgradeModal from '@/components/ProUpgradeModal';
 import StatsSection from '@/components/StatsSection';
 import UserDashboard from '@/components/UserDashboard';
 import LoginModal from '@/components/LoginModal';
+import DynamicAd from '@/components/DynamicAd';
 
 interface FileData {
   name: string;
@@ -26,8 +30,20 @@ const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [isProModalOpen, setIsProModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isConversionPopupOpen, setIsConversionPopupOpen] = useState(false);
+  const [conversionTrigger, setConversionTrigger] = useState<'time' | 'action' | 'exit' | 'idle'>('time');
+  const [userIdleTime, setUserIdleTime] = useState(0);
+  const [hasShownTimePopup, setHasShownTimePopup] = useState(false);
+  
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
+  const { 
+    trackFileUpload, 
+    trackCompression, 
+    trackDownload, 
+    trackUserAction, 
+    trackConversion 
+  } = useAnalytics();
   
   const { 
     isCompressing, 
@@ -39,9 +55,69 @@ const Index = () => {
     reset 
   } = useCompression();
 
+  // Conversion popup logic
+  useEffect(() => {
+    // Time-based popup (5 minutes)
+    const timePopupTimer = setTimeout(() => {
+      if (!isAuthenticated && !hasShownTimePopup) {
+        setConversionTrigger('time');
+        setIsConversionPopupOpen(true);
+        setHasShownTimePopup(true);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Idle detection
+    let idleTimer: NodeJS.Timeout;
+    const resetIdleTimer = () => {
+      setUserIdleTime(0);
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        setUserIdleTime(prev => prev + 1);
+        if (userIdleTime > 2 && !isAuthenticated) {
+          setConversionTrigger('idle');
+          setIsConversionPopupOpen(true);
+        }
+      }, 30000); // 30 seconds
+    };
+
+    // Exit intent detection
+    const handleMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 0 && !isAuthenticated) {
+        setConversionTrigger('exit');
+        setIsConversionPopupOpen(true);
+      }
+    };
+
+    document.addEventListener('mousemove', resetIdleTimer);
+    document.addEventListener('mousedown', resetIdleTimer);
+    document.addEventListener('keypress', resetIdleTimer);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      clearTimeout(timePopupTimer);
+      clearTimeout(idleTimer);
+      document.removeEventListener('mousemove', resetIdleTimer);
+      document.removeEventListener('mousedown', resetIdleTimer);
+      document.removeEventListener('keypress', resetIdleTimer);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [isAuthenticated, hasShownTimePopup, userIdleTime]);
+
+  // Listen for PRO modal trigger
+  useEffect(() => {
+    const handleOpenProModal = () => {
+      setIsProModalOpen(true);
+    };
+
+    window.addEventListener('openProModal', handleOpenProModal);
+    return () => window.removeEventListener('openProModal', handleOpenProModal);
+  }, []);
+
   const handleFilesSelected = (selectedFiles: FileData[]) => {
     const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
     const maxSize = user?.maxFileSize || 500 * 1024 * 1024; // 500MB para não logados
+    
+    trackFileUpload(selectedFiles.length, totalSize);
     
     if (totalSize > maxSize) {
       if (!isAuthenticated) {
@@ -80,8 +156,20 @@ const Index = () => {
       return;
     }
     
+    // Trigger action-based conversion popup after 3 compressions
+    const compressionCount = parseInt(localStorage.getItem('compressionCount') || '0');
+    if (compressionCount >= 2 && !isAuthenticated) {
+      setConversionTrigger('action');
+      setIsConversionPopupOpen(true);
+    }
+    
     try {
+      const totalSize = files.reduce((acc, file) => acc + file.size, 0);
       const result = await compressFiles(files);
+      
+      trackCompression(files.length, totalSize, result.compressedBlob.size, result.compressionRatio);
+      localStorage.setItem('compressionCount', (compressionCount + 1).toString());
+      
       toast({
         title: "✅ Compressão concluída!",
         description: `${files.length} arquivo(s) comprimidos com sucesso. Economia: ${result.compressionRatio}%`,
@@ -100,16 +188,28 @@ const Index = () => {
   };
 
   const handleDownload = () => {
-    downloadCompressed(`zipfast_${Date.now()}.zip`);
-    toast({
-      title: "📥 Download iniciado!",
-      description: "Seu arquivo ZIP está sendo baixado.",
-    });
+    if (compressedBlob) {
+      const filename = `zipfast_${Date.now()}.zip`;
+      downloadCompressed(filename);
+      trackDownload(filename, compressedBlob.size);
+      
+      toast({
+        title: "📥 Download iniciado!",
+        description: "Seu arquivo ZIP está sendo baixado.",
+      });
+    }
   };
 
   const handleReset = () => {
     setFiles([]);
     reset();
+    trackUserAction('compression_reset');
+  };
+
+  const handleProUpgrade = () => {
+    trackConversion('upgrade', 29.90);
+    setIsProModalOpen(true);
+    setIsConversionPopupOpen(false);
   };
 
   const features = [
@@ -179,6 +279,13 @@ const Index = () => {
         {/* Stats Section */}
         <StatsSection />
 
+        {/* Sidebar Ad for Free Users */}
+        {!isAuthenticated && (
+          <div className="mb-8">
+            <DynamicAd placement="sidebar" className="max-w-sm mx-auto" />
+          </div>
+        )}
+
         {/* Upload Zone */}
         <div id="upload-zone" className="mb-12">
           <UploadZone onFilesSelected={handleFilesSelected} />
@@ -220,6 +327,9 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Affiliate Section */}
+        <AffiliateSection />
+
         {/* Trust Section */}
         <section className="py-16 text-center">
           <div className="zipfast-card max-w-4xl mx-auto p-8">
@@ -242,6 +352,7 @@ const Index = () => {
         </section>
       </main>
 
+      {/* Modals */}
       <ProUpgradeModal 
         isOpen={isProModalOpen} 
         onClose={() => setIsProModalOpen(false)} 
@@ -250,6 +361,13 @@ const Index = () => {
       <LoginModal 
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)} 
+      />
+
+      <ConversionPopup
+        isOpen={isConversionPopupOpen}
+        onClose={() => setIsConversionPopupOpen(false)}
+        onUpgrade={handleProUpgrade}
+        trigger={conversionTrigger}
       />
     </div>
   );
