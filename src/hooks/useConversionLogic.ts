@@ -1,98 +1,62 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-interface ConversionLogicState {
-  isConversionPopupOpen: boolean;
-  conversionTrigger: 'time' | 'action' | 'exit' | 'idle';
-  hasShownTimePopup: boolean;
-  userIdleTime: number;
-}
+export type ConversionTrigger = 'time' | 'action' | 'exit';
 
 export const useConversionLogic = (isAuthenticated: boolean) => {
-  const [state, setState] = useState<ConversionLogicState>({
-    isConversionPopupOpen: false,
-    conversionTrigger: 'time',
-    hasShownTimePopup: false,
-    userIdleTime: 0
-  });
+  const [isConversionPopupOpen, setIsConversionPopupOpen] = useState(false);
+  const [conversionTrigger, setConversionTrigger] = useState<ConversionTrigger>('time');
 
+  // Trigger baseado em tempo (5 minutos na página)
   useEffect(() => {
-    // Time-based popup (5 minutes)
-    const timePopupTimer = setTimeout(() => {
-      if (!isAuthenticated && !state.hasShownTimePopup) {
-        setState(prev => ({
-          ...prev,
-          conversionTrigger: 'time',
-          isConversionPopupOpen: true,
-          hasShownTimePopup: true
-        }));
-      }
-    }, 5 * 60 * 1000); // 5 minutes
+    if (isAuthenticated) return;
 
-    // Idle detection
-    let idleTimer: NodeJS.Timeout;
-    const resetIdleTimer = () => {
-      setState(prev => ({ ...prev, userIdleTime: 0 }));
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        setState(prev => {
-          const newIdleTime = prev.userIdleTime + 1;
-          if (newIdleTime > 2 && !isAuthenticated) {
-            return {
-              ...prev,
-              userIdleTime: newIdleTime,
-              conversionTrigger: 'idle',
-              isConversionPopupOpen: true
-            };
-          }
-          return { ...prev, userIdleTime: newIdleTime };
-        });
-      }, 30000); // 30 seconds
-    };
+    const timer = setTimeout(() => {
+      setConversionTrigger('time');
+      setIsConversionPopupOpen(true);
+    }, 5 * 60 * 1000); // 5 minutos
 
-    // Exit intent detection
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
+  // Trigger baseado em intent de saída
+  useEffect(() => {
+    if (isAuthenticated) return;
+
     const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 0 && !isAuthenticated) {
-        setState(prev => ({
-          ...prev,
-          conversionTrigger: 'exit',
-          isConversionPopupOpen: true
-        }));
+      if (e.clientY <= 0) {
+        setConversionTrigger('exit');
+        setIsConversionPopupOpen(true);
       }
     };
 
-    document.addEventListener('mousemove', resetIdleTimer);
-    document.addEventListener('mousedown', resetIdleTimer);
-    document.addEventListener('keypress', resetIdleTimer);
     document.addEventListener('mouseleave', handleMouseLeave);
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+  }, [isAuthenticated]);
 
-    return () => {
-      clearTimeout(timePopupTimer);
-      clearTimeout(idleTimer);
-      document.removeEventListener('mousemove', resetIdleTimer);
-      document.removeEventListener('mousedown', resetIdleTimer);
-      document.removeEventListener('keypress', resetIdleTimer);
-      document.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, [isAuthenticated, state.hasShownTimePopup, state.userIdleTime]);
+  const triggerActionBasedPopup = useCallback(() => {
+    if (isAuthenticated) return;
 
-  const closeConversionPopup = () => {
-    setState(prev => ({ ...prev, isConversionPopupOpen: false }));
-  };
-
-  const triggerActionBasedPopup = () => {
-    const compressionCount = parseInt(localStorage.getItem('compressionCount') || '0');
-    if (compressionCount >= 2 && !isAuthenticated) {
-      setState(prev => ({
-        ...prev,
-        conversionTrigger: 'action',
-        isConversionPopupOpen: true
-      }));
+    // Verificar se já mostrou popup recentemente
+    const lastShown = localStorage.getItem('zipfast_last_popup');
+    const now = Date.now();
+    
+    if (lastShown && now - parseInt(lastShown) < 10 * 60 * 1000) {
+      return; // Não mostrar se foi há menos de 10 minutos
     }
-  };
+
+    setConversionTrigger('action');
+    setIsConversionPopupOpen(true);
+    localStorage.setItem('zipfast_last_popup', now.toString());
+  }, [isAuthenticated]);
+
+  const closeConversionPopup = useCallback(() => {
+    setIsConversionPopupOpen(false);
+  }, []);
 
   return {
-    ...state,
+    isConversionPopupOpen,
+    conversionTrigger,
     closeConversionPopup,
     triggerActionBasedPopup
   };

@@ -1,9 +1,10 @@
 
 import React from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Crown, Zap, Download, Cloud, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Crown, Zap, Download, TrendingUp } from 'lucide-react';
 
 interface UserDashboardProps {
   onUpgradeClick: () => void;
@@ -14,94 +15,75 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ onUpgradeClick }) => {
 
   if (!user) return null;
 
-  const usagePercentage = ((10 - user.credits) / 10) * 100;
+  const getUsageData = () => {
+    const history = JSON.parse(localStorage.getItem(`zipfast_history_${user.id}`) || '[]');
+    const totalCompressions = history.length;
+    const totalSavings = history.reduce((acc: number, record: any) => {
+      return acc + (record.originalSize - record.compressedSize);
+    }, 0);
+    
+    return { totalCompressions, totalSavings };
+  };
+
+  const { totalCompressions, totalSavings } = getUsageData();
+  const creditsPercentage = (user.credits / (user.plan === 'pro' ? 1000 : 10)) * 100;
 
   return (
-    <Card className="zipfast-card mb-8">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            {user.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.name}
-                className="w-12 h-12 rounded-full"
-              />
-            ) : (
-              <div className="w-12 h-12 bg-zipfast-gradient rounded-full flex items-center justify-center text-white font-bold">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div>
-              <h3 className="font-bold text-lg">{user.name}</h3>
-              <p className="text-gray-600">{user.email}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {user.plan === 'pro' ? (
-              <div className="flex items-center gap-2 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full">
-                <Crown className="w-4 h-4" />
-                <span className="font-semibold">PRO</span>
-              </div>
-            ) : (
-              <Button onClick={onUpgradeClick} variant="outline" size="sm">
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade para PRO
-              </Button>
-            )}
-          </div>
-        </div>
+    <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Credits Card */}
+      <Card className={user.plan === 'pro' ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-orange-50' : ''}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">
+            {user.plan === 'pro' ? 'Créditos PRO' : 'Créditos Gratuitos'}
+          </CardTitle>
+          {user.plan === 'pro' ? (
+            <Crown className="h-4 w-4 text-yellow-500" />
+          ) : (
+            <Zap className="h-4 w-4 text-blue-500" />
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{user.credits}</div>
+          <Progress value={creditsPercentage} className="mt-2" />
+          {user.plan === 'free' && user.credits <= 3 && (
+            <Button onClick={onUpgradeClick} size="sm" className="mt-3 w-full">
+              <Crown className="w-4 h-4 mr-2" />
+              Upgrade PRO
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Zap className="w-8 h-8 text-zipfast-blue" />
-            </div>
-            <h4 className="font-semibold mb-1">Créditos Restantes</h4>
-            <p className="text-2xl font-bold text-zipfast-blue">{user.credits}</p>
-            <p className="text-sm text-gray-600">de 10 créditos</p>
-          </div>
+      {/* Usage Stats */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Compressões</CardTitle>
+          <Download className="h-4 w-4 text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{totalCompressions}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Total de arquivos processados
+          </p>
+        </CardContent>
+      </Card>
 
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Download className="w-8 h-8 text-green-600" />
-            </div>
-            <h4 className="font-semibold mb-1">Limite de Arquivo</h4>
-            <p className="text-2xl font-bold text-green-600">
-              {user.maxFileSize / (1024 * 1024)}MB
-            </p>
-            <p className="text-sm text-gray-600">por operação</p>
+      {/* Savings */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Economia Total</CardTitle>
+          <TrendingUp className="h-4 w-4 text-purple-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {(totalSavings / 1024 / 1024).toFixed(1)}MB
           </div>
-
-          <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <TrendingUp className="w-8 h-8 text-zipfast-purple" />
-            </div>
-            <h4 className="font-semibold mb-1">Uso Atual</h4>
-            <p className="text-2xl font-bold text-zipfast-purple">{usagePercentage.toFixed(0)}%</p>
-            <p className="text-sm text-gray-600">dos créditos</p>
-          </div>
-        </div>
-
-        {user.plan === 'free' && user.credits <= 3 && (
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-3">
-              <Crown className="w-5 h-5 text-yellow-600" />
-              <div>
-                <p className="font-semibold text-yellow-800">Poucos créditos restantes!</p>
-                <p className="text-sm text-yellow-700">
-                  Upgrade para PRO e tenha créditos ilimitados + arquivos até 5GB
-                </p>
-              </div>
-              <Button onClick={onUpgradeClick} size="sm" className="ml-auto">
-                Upgrade Agora
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </Card>
+          <p className="text-xs text-muted-foreground mt-1">
+            Espaço economizado
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

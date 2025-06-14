@@ -1,37 +1,24 @@
 
-import React, { useEffect } from 'react';
-import { useAds } from '@/hooks/useAds';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { useAuth } from '@/contexts/AuthContext';
+import React from 'react';
 import DynamicAd from './DynamicAd';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AdBanner: React.FC = () => {
-  const { user } = useAuth();
-  const { currentAd, trackImpression, trackClick } = useAds('content');
-  const { trackUserAction } = useAnalytics();
-
-  useEffect(() => {
-    if (currentAd) {
-      trackImpression(currentAd.id);
-    }
-  }, [currentAd, trackImpression]);
-
-  const handleAdClose = () => {
-    trackUserAction('ad_close', { adId: currentAd?.id, placement: 'content' });
-  };
+  const { isAuthenticated, user } = useAuth();
 
   // Não mostrar anúncios para usuários PRO
-  if (user?.plan === 'pro') {
+  if (isAuthenticated && user?.plan === 'pro') {
     return null;
   }
 
   return (
-    <div className="mb-12">
-      <DynamicAd 
-        placement="content" 
-        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-        onClose={handleAdClose}
-      />
+    <div className="py-8">
+      <div className="text-center mb-4">
+        <p className="text-sm text-gray-500">
+          {isAuthenticated ? 'Remova os anúncios com o plano PRO' : 'Anúncio - Apoie nossos parceiros'}
+        </p>
+      </div>
+      <DynamicAd placement="banner" className="max-w-4xl mx-auto" />
     </div>
   );
 };
