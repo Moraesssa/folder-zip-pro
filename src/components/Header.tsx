@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Crown, Menu, User, LogOut, Zap, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +17,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { usePayments } from '@/hooks/usePayments';
 
 interface HeaderProps {
   onUpgradeClick: () => void;
@@ -26,7 +26,8 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, checkSubscription } = useAuth();
+  const { openCustomerPortal, refreshSubscription, isLoading } = usePayments();
 
   const handleMobileLogout = () => {
     logout();
@@ -42,6 +43,24 @@ const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
     setIsLoginModalOpen(true);
     setIsMobileMenuOpen(false);
   };
+
+  const handleManageSubscription = () => {
+    if (user?.plan === 'pro') {
+      openCustomerPortal();
+    } else {
+      onUpgradeClick();
+    }
+  };
+
+  const handleRefreshSubscription = () => {
+    refreshSubscription();
+  };
+
+  useEffect(() => {
+    if (user) {
+      checkSubscription();
+    }
+  }, [user, checkSubscription]);
 
   return (
     <>
@@ -63,6 +82,15 @@ const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-600">Créditos:</span>
                     <span className="font-semibold text-zipfast-blue">{user?.credits}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshSubscription}
+                      disabled={isLoading}
+                      className="h-6 px-2"
+                    >
+                      ↻
+                    </Button>
                   </div>
                   
                   <DropdownMenu>
@@ -74,6 +102,9 @@ const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
                           <User className="w-4 h-4" />
                         )}
                         {user?.name}
+                        {user?.plan === 'pro' && (
+                          <Crown className="w-3 h-3 text-yellow-500" />
+                        )}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -81,6 +112,12 @@ const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
                         <User className="w-4 h-4 mr-2" />
                         Minha Conta
                       </DropdownMenuItem>
+                      {user?.plan === 'pro' && (
+                        <DropdownMenuItem onClick={openCustomerPortal}>
+                          <Crown className="w-4 h-4 mr-2" />
+                          Gerenciar Assinatura
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={logout}>
                         <LogOut className="w-4 h-4 mr-2" />
@@ -96,9 +133,9 @@ const Header: React.FC<HeaderProps> = ({ onUpgradeClick }) => {
                 </Button>
               )}
               
-              <Button onClick={onUpgradeClick} className="zipfast-button">
+              <Button onClick={handleManageSubscription} className="zipfast-button">
                 <Crown className="w-4 h-4 mr-2" />
-                {user?.plan === 'pro' ? 'PRO' : 'Upgrade PRO'}
+                {user?.plan === 'pro' ? 'Gerenciar PRO' : 'Upgrade PRO'}
               </Button>
             </div>
 

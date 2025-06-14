@@ -1,9 +1,11 @@
 
 import React from 'react';
-import { Crown, Zap, Shield, Upload, X, Check } from 'lucide-react';
+import { Crown, Zap, Shield, Upload, X, Check, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { usePayments } from '@/hooks/usePayments';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -11,12 +13,19 @@ interface ProUpgradeModalProps {
 }
 
 const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClose }) => {
+  const { createCheckoutSession, isLoading } = usePayments();
+  const { user } = useAuth();
+
   const features = [
     { icon: Upload, text: "Até 5GB por operação (10x mais)" },
-    { icon: Zap, text: "Compressão prioritária (3x mais rápida)" },
+    { icon: Zap, text: "1000 créditos mensais (100x mais)" },
     { icon: Shield, text: "Sem anúncios em toda a plataforma" },
     { icon: Crown, text: "Compressão em lote ilimitada" }
   ];
+
+  const handleUpgrade = async () => {
+    await createCheckoutSession();
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -56,37 +65,48 @@ const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClose }) =>
 
         <Card className="p-6 bg-gradient-to-r from-zipfast-blue to-zipfast-purple text-white text-center">
           <div className="mb-4">
-            <span className="text-3xl font-bold">R$ 9,90</span>
+            <span className="text-3xl font-bold">$1.99</span>
             <span className="text-lg opacity-90">/mês</span>
           </div>
           <p className="text-sm opacity-90 mb-4">
-            Primeiro mês grátis • Cancele quando quiser
+            Equivalente a R$ 9,90 • Cancele quando quiser
           </p>
           <div className="text-xs opacity-75">
-            <s>R$ 29,90</s> - 67% OFF na Black Friday
+            Primeiro mês com desconto especial
           </div>
         </Card>
 
         <div className="space-y-3">
           <Button 
             className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white font-bold py-3"
-            onClick={() => console.log('PRO upgrade clicked')}
+            onClick={handleUpgrade}
+            disabled={isLoading}
           >
-            <Crown className="w-5 h-5 mr-2" />
-            Começar Teste Grátis
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              <>
+                <Crown className="w-5 h-5 mr-2" />
+                {user ? 'Assinar Plano PRO' : 'Fazer Login e Assinar'}
+              </>
+            )}
           </Button>
           
           <Button 
             variant="outline" 
             className="w-full"
             onClick={onClose}
+            disabled={isLoading}
           >
             Continuar com Plano Gratuito
           </Button>
         </div>
 
         <p className="text-xs text-gray-500 text-center">
-          Pagamento seguro via Stripe • Política de cancelamento em 30 dias
+          Pagamento seguro via Stripe • Cancele a qualquer momento
         </p>
       </DialogContent>
     </Dialog>
