@@ -1,38 +1,17 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Create a fallback client if environment variables are missing
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-  plan: 'free' | 'pro';
-  credits: number;
-  maxFileSize: number;
-}
-
-interface AuthContextType {
-  user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  logout: () => void;
-  consumeCredits: (amount: number) => Promise<boolean>;
-  checkSubscription: () => Promise<void>;
-  refreshUserData: () => Promise<void>;
-  isAuthenticated: boolean;
-}
+import { User, AuthContextType } from '@/types/auth';
+import { supabase } from '@/lib/supabase';
+import { loadUserProfile, updateUserCredits } from '@/services/userProfileService';
+import { 
+  signUpUser, 
+  signInUser, 
+  signInWithGoogle, 
+  signOutUser,
+  getCurrentSession,
+  onAuthStateChange
+} from '@/services/authService';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -58,18 +37,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    getCurrentSession().then((session) => {
       if (session?.user) {
-        loadUserProfile(session.user.id);
+        handleUserLoad(session.user.id);
       } else {
         setIsLoading(false);
       }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const subscription = onAuthStateChange((event, session) => {
       if (session?.user) {
-        loadUserProfile(session.user.id);
+        handleUserLoad(session.user.id);
       } else {
         setUser(null);
         setIsLoading(false);
@@ -79,31 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadUserProfile = async (userId: string) => {
-    if (!supabase) return;
-    
+  const handleUserLoad = async (userId: string) => {
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error loading profile:', error);
-        setIsLoading(false);
-        return;
-      }
-
-      setUser({
-        id: profile.id,
-        email: profile.email,
-        name: profile.name || profile.email.split('@')[0],
-        avatar: profile.avatar_url,
-        plan: profile.plan,
-        credits: profile.credits,
-        maxFileSize: profile.max_file_size
-      });
+      const profile = await loadUserProfile(userId);
+      setUser(profile);
     } catch (error) {
       console.error('Error loading user profile:', error);
     } finally {
@@ -112,28 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (email: string, password: string, name: string) => {
-    if (!supabase) {
-      toast({
-        title: "Configuração necessária",
-        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name
-          }
-        }
-      });
-
-      if (error) throw error;
+      const data = await signUpUser(email, password, name);
 
       if (data.user && !data.session) {
         toast({
@@ -154,25 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
-    if (!supabase) {
-      toast({
-        title: "Configuração necessária",
-        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-
-      // Profile will be loaded by the auth state change listener
+      await signInUser(email, password);
     } catch (error: any) {
       toast({
         title: "Erro no login",
@@ -186,25 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async () => {
-    if (!supabase) {
-      toast({
-        title: "Configuração necessária",
-        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-
-      if (error) throw error;
+      await signInWithGoogle();
     } catch (error: any) {
       toast({
         title: "Erro no login com Google",
@@ -218,38 +125,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    if (!supabase) return;
-    
-    await supabase.auth.signOut();
+    await signOutUser();
     setUser(null);
   };
 
   const consumeCredits = async (amount: number): Promise<boolean> => {
-    if (!supabase || !user || user.credits < amount) {
+    if (!user || user.credits < amount) {
       return false;
     }
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ credits: user.credits - amount })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setUser(prev => prev ? { ...prev, credits: prev.credits - amount } : null);
-      return true;
-    } catch (error) {
-      console.error('Error consuming credits:', error);
-      return false;
+    const newCredits = user.credits - amount;
+    const success = await updateUserCredits(user.id, newCredits);
+    
+    if (success) {
+      setUser(prev => prev ? { ...prev, credits: newCredits } : null);
     }
+    
+    return success;
   };
 
   const refreshUserData = async () => {
-    if (!supabase || !user) return;
+    if (!user) return;
 
     try {
-      await loadUserProfile(user.id);
+      const profile = await loadUserProfile(user.id);
+      if (profile) {
+        setUser(profile);
+      }
     } catch (error) {
       console.error('Error refreshing user data:', error);
     }
@@ -259,8 +161,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase || !user) return;
 
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return;
+      const session = await getCurrentSession();
+      if (!session) return;
 
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
@@ -298,3 +200,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+// Export supabase for backward compatibility
+export { supabase };
