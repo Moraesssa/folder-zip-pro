@@ -1,8 +1,10 @@
+
 import React, { useState } from 'react';
 import { Upload, Zap, Crown, Download, Folder, FileText, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useCompression } from '@/hooks/useCompression';
+import { useAuth } from '@/contexts/AuthContext';
 import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
@@ -10,6 +12,8 @@ import FeatureCard from '@/components/FeatureCard';
 import AdBanner from '@/components/AdBanner';
 import ProUpgradeModal from '@/components/ProUpgradeModal';
 import StatsSection from '@/components/StatsSection';
+import UserDashboard from '@/components/UserDashboard';
+import LoginModal from '@/components/LoginModal';
 
 interface FileData {
   name: string;
@@ -21,7 +25,9 @@ interface FileData {
 const Index = () => {
   const [files, setFiles] = useState<FileData[]>([]);
   const [isProModalOpen, setIsProModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   
   const { 
     isCompressing, 
@@ -35,9 +41,19 @@ const Index = () => {
 
   const handleFilesSelected = (selectedFiles: FileData[]) => {
     const totalSize = selectedFiles.reduce((acc, file) => acc + file.size, 0);
-    const maxSize = 500 * 1024 * 1024; // 500MB limit for free users
+    const maxSize = user?.maxFileSize || 500 * 1024 * 1024; // 500MB para não logados
     
     if (totalSize > maxSize) {
+      if (!isAuthenticated) {
+        setIsLoginModalOpen(true);
+        toast({
+          title: "Faça login para arquivos maiores",
+          description: "Crie uma conta gratuita para processar arquivos até 500MB!",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       setIsProModalOpen(true);
       toast({
         title: "Limite excedido",
@@ -54,6 +70,16 @@ const Index = () => {
   const handleCompress = async () => {
     if (files.length === 0) return;
     
+    if (!isAuthenticated) {
+      setIsLoginModalOpen(true);
+      toast({
+        title: "Login necessário",
+        description: "Faça login para comprimir arquivos gratuitamente!",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       const result = await compressFiles(files);
       toast({
@@ -61,11 +87,15 @@ const Index = () => {
         description: `${files.length} arquivo(s) comprimidos com sucesso. Economia: ${result.compressionRatio}%`,
       });
     } catch (error) {
-      toast({
-        title: "❌ Erro na compressão",
-        description: "Houve um problema ao comprimir os arquivos. Tente novamente.",
-        variant: "destructive"
-      });
+      if (error instanceof Error && error.message.includes('Créditos insuficientes')) {
+        setIsProModalOpen(true);
+      } else {
+        toast({
+          title: "❌ Erro na compressão",
+          description: "Houve um problema ao comprimir os arquivos. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -106,6 +136,11 @@ const Index = () => {
       <Header onUpgradeClick={() => setIsProModalOpen(true)} />
       
       <main className="container mx-auto px-4 py-8">
+        {/* User Dashboard */}
+        {isAuthenticated && (
+          <UserDashboard onUpgradeClick={() => setIsProModalOpen(true)} />
+        )}
+
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-zipfast-gradient text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
@@ -210,6 +245,11 @@ const Index = () => {
       <ProUpgradeModal 
         isOpen={isProModalOpen} 
         onClose={() => setIsProModalOpen(false)} 
+      />
+      
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
       />
     </div>
   );
