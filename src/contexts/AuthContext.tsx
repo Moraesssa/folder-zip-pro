@@ -25,10 +25,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
   consumeCredits: (amount: number) => Promise<boolean>;
   checkSubscription: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -104,6 +106,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (error) {
       console.error('Error loading user profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    if (!supabase) {
+      toast({
+        title: "Configuração necessária",
+        description: "Supabase não está configurado. Configure as variáveis de ambiente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user && !data.session) {
+        toast({
+          title: "Verifique seu email",
+          description: "Enviamos um link de confirmação para seu email.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro no cadastro",
+        description: error.message,
+        variant: "destructive"
+      });
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +245,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUserData = async () => {
+    if (!supabase || !user) return;
+
+    try {
+      await loadUserProfile(user.id);
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
+
   const checkSubscription = async () => {
     if (!supabase || !user) return;
 
@@ -232,10 +286,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user,
       isLoading,
       login,
+      register,
       loginWithGoogle,
       logout,
       consumeCredits,
       checkSubscription,
+      refreshUserData,
       isAuthenticated
     }}>
       {children}
