@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { useCompression } from '@/hooks/useCompression';
+import { useCompressionReal } from '@/hooks/useCompressionReal';
 import { useAnalytics } from '@/hooks/useAnalytics';
+import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
 import { useFileUploadHandler } from '@/components/FileUploadHandler';
 import { useCompressionHandler } from '@/components/CompressionHandler';
 import { useDownloadHandler } from '@/components/DownloadHandler';
@@ -9,7 +10,7 @@ import { useCloudUploadHandler } from '@/components/CloudUploadHandler';
 import UploadZone from '@/components/UploadZone';
 import CompressionProgress from '@/components/CompressionProgress';
 import Cloudintegration from '@/components/Cloudintegration';
-import CompressionHistory from '@/components/CompressionHistory';
+import CompressionHistoryReal from '@/components/CompressionHistoryReal';
 import DynamicAd from '@/components/DynamicAd';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +38,7 @@ const MainContent: React.FC<MainContentProps> = ({
   const { isAuthenticated } = useAuth();
   const { trackUserAction } = useAnalytics();
   
+  // Use real compression hook with Supabase integration
   const { 
     isCompressing, 
     progress, 
@@ -44,8 +46,12 @@ const MainContent: React.FC<MainContentProps> = ({
     compressionRatio,
     compressFiles, 
     downloadCompressed, 
-    reset 
-  } = useCompression();
+    reset,
+    error
+  } = useCompressionReal();
+
+  // Initialize real-time notifications
+  useRealTimeNotifications();
 
   // Custom handlers
   const { handleFilesSelected } = useFileUploadHandler({
@@ -83,6 +89,14 @@ const MainContent: React.FC<MainContentProps> = ({
       {!isAuthenticated && (
         <div className="mb-8">
           <DynamicAd placement="sidebar" className="max-w-sm mx-auto" />
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <p className="font-medium">Erro:</p>
+          <p className="text-sm">{error}</p>
         </div>
       )}
 
@@ -136,7 +150,7 @@ const MainContent: React.FC<MainContentProps> = ({
             </TabsContent>
             
             <TabsContent value="history">
-              <CompressionHistory />
+              <CompressionHistoryReal />
             </TabsContent>
           </Tabs>
         </div>

@@ -13,7 +13,7 @@ import AffiliateSection from '@/components/AffiliateSection';
 import ConversionPopup from '@/components/ConversionPopup';
 import ProUpgradeModal from '@/components/ProUpgradeModal';
 import StatsSection from '@/components/StatsSection';
-import UserDashboard from '@/components/UserDashboard';
+import UserDashboardReal from '@/components/UserDashboardReal';
 import LoginModal from '@/components/LoginModal';
 import TrustSection from '@/components/TrustSection';
 
@@ -71,9 +71,9 @@ const Index = () => {
       <Header onUpgradeClick={() => setIsProModalOpen(true)} />
       
       <main className="container mx-auto px-4 py-8">
-        {/* User Dashboard */}
+        {/* Real User Dashboard with Supabase integration */}
         {isAuthenticated && (
-          <UserDashboard onUpgradeClick={() => setIsProModalOpen(true)} />
+          <UserDashboardReal onUpgradeClick={() => setIsProModalOpen(true)} />
         )}
 
         {/* Hero Section */}
