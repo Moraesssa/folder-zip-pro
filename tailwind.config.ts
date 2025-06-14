@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -52,6 +53,14 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				zipfast: {
+					blue: '#3B82F6',
+					purple: '#8B5CF6',
+					gradient: 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)',
+					success: '#10B981',
+					warning: '#F59E0B',
+					dark: '#1F2937'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
@@ -84,11 +93,25 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'zip-bounce': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-10px)' }
+				},
+				'progress-fill': {
+					'0%': { width: '0%' },
+					'100%': { width: '100%' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'zip-bounce': 'zip-bounce 1s infinite',
+				'progress-fill': 'progress-fill 3s ease-in-out'
+			},
+			backgroundImage: {
+				'zipfast-gradient': 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)',
+				'zipfast-gradient-reverse': 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)'
 			}
 		}
 	},

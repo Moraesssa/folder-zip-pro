@@ -1,8 +1,9 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
+/* ZipFast Design System */
 
 @layer base {
   :root {
@@ -37,19 +38,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -98,6 +92,34 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 text-foreground;
+    min-height: 100vh;
   }
+}
+
+@layer components {
+  .zipfast-gradient {
+    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+  }
+  
+  .zipfast-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-xl rounded-2xl;
+  }
+  
+  .zipfast-button {
+    @apply bg-zipfast-gradient text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zipfast-blue/30 rounded-full hover:bg-zipfast-purple/50;
 }
