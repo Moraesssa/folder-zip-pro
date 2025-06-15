@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { History, Download, Trash2, Calendar, FileArchive, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +36,12 @@ const OracleCompressionHistory: React.FC = () => {
       const response = await oracleClient.getCompressionHistory(user.id, 50);
 
       if (response.success) {
-        setHistory(response.items || []);
+        // Handle Oracle ORDS response format - items could be nested or direct array
+        const historyData = Array.isArray(response.items) ? response.items : [];
+        const validHistory = historyData.filter((item): item is CompressionRecord => {
+          return item && typeof item === 'object' && 'id' in item;
+        });
+        setHistory(validHistory);
       }
     } catch (error) {
       console.error('Error loading history:', error);
