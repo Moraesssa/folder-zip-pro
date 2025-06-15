@@ -1,8 +1,21 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useOracleAuth, oracleClient } from '@/contexts/OracleAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { CompressionRecord, CompressionStats } from '@/types/oracleCompression';
+
+const isValidCompressionRecord = (item: any): item is CompressionRecord => {
+  return (
+    item &&
+    typeof item === 'object' &&
+    typeof item.id === 'string' &&
+    typeof item.filename === 'string' &&
+    typeof item.original_size === 'number' &&
+    typeof item.compressed_size === 'number' &&
+    typeof item.compression_ratio === 'number' &&
+    typeof item.file_count === 'number' &&
+    typeof item.created_at === 'string'
+  );
+};
 
 export const useOracleCompressionHistory = () => {
   const [history, setHistory] = useState<CompressionRecord[]>([]);
@@ -16,17 +29,32 @@ export const useOracleCompressionHistory = () => {
     setIsLoading(true);
     try {
       const response = await oracleClient.getCompressionHistory(user.id, 50);
+      console.log('Oracle response:', response);
 
       if (response.success) {
-        // Handle Oracle ORDS response format - ensure we have a valid array
-        const historyData = response.items || [];
-        const validHistory = historyData.filter((item: any): item is CompressionRecord => {
-          return item && typeof item === 'object' && 'id' in item && 'filename' in item;
+        // Access response.data instead of response.items to match Oracle client
+        const historyData = response.data || [];
+        console.log('History data received:', historyData);
+        
+        // Ensure we have a valid array and validate each item
+        const dataArray = Array.isArray(historyData) ? historyData : [];
+        const validHistory = dataArray.filter((item: any) => {
+          const isValid = isValidCompressionRecord(item);
+          if (!isValid) {
+            console.warn('Invalid compression record:', item);
+          }
+          return isValid;
         });
+        
+        console.log('Valid history records:', validHistory);
         setHistory(validHistory);
+      } else {
+        console.error('Oracle response not successful:', response);
+        setHistory([]);
       }
     } catch (error) {
       console.error('Error loading history:', error);
+      setHistory([]);
       toast({
         title: "Erro ao carregar histórico",
         description: "Não foi possível carregar o histórico de compressões.",
