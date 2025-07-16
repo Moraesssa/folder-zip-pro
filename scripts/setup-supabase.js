@@ -57,7 +57,7 @@ function validateSupabaseConnection() {
   console.log(`📍 URL: ${SUPABASE_CONFIG.url}`);
   console.log(`🔑 Projeto: ${SUPABASE_CONFIG.projectRef}`);
   console.log(`🏢 Organização: ${SUPABASE_CONFIG.organization}`);
-  
+
   // Aqui você pode adicionar validação real da conexão
   console.log('⚠️  ATENÇÃO: Verifique se as credenciais estão corretas no painel do Supabase');
 }
@@ -83,12 +83,12 @@ function showNextSteps() {
 
 function main() {
   console.log('🔧 Configurando Supabase para ZipFast...\n');
-  
+
   try {
     createEnvFile();
     validateSupabaseConnection();
     showNextSteps();
-    
+
     console.log('\n✅ Configuração inicial concluída!');
   } catch (error) {
     console.error('❌ Erro na configuração:', error.message);
