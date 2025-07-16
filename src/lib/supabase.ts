@@ -1,10 +1,17 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { configService } from '@/services/configService';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Log configuration status on startup
+configService.logConfigurationStatus();
 
-// Create a fallback client if environment variables are missing
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+const supabaseConfig = configService.getSupabaseConfig();
+
+// Create client only if properly configured
+export const supabase = supabaseConfig 
+  ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
   : null;
+
+// Export configuration status for components to use
+export const isSupabaseConfigured = configService.isSupabaseEnabled();
+export const getConfigValidation = () => configService.getValidationResult();
